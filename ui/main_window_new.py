@@ -1,5 +1,5 @@
 """
-Modern MainWindow - Complete Rework
+Modern MainWindow - Complete Rework with Dashboard and Animations
 """
 import os.path as osp
 import sys
@@ -9,9 +9,9 @@ from pathlib import Path
 from qtpy.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, 
     QSplitter, QStackedWidget, QFileDialog, QMessageBox,
-    QApplication, QShortcut, QLabel
+    QApplication, QShortcut, QLabel, QFrame, QGraphicsOpacityEffect
 )
-from qtpy.QtCore import Qt, Signal, QSize
+from qtpy.QtCore import Qt, Signal, QSize, QPropertyAnimation, QEasingCurve, QRect, Property
 from qtpy.QtGui import QKeySequence, QIcon, QCloseEvent
 
 # Utils
@@ -20,21 +20,56 @@ from utils import shared
 from utils.config import ProgramConfig, pcfg, save_config
 
 # UI Components
-from .components import ModernSidebarNew
+from .components import ModernSidebarNew, ModernCard
+from .components.modern_titlebar import ModernTitleBar
+from .components.modern_dashboard import ModernDashboard
 from .themes import ModernTheme
 
 # Legacy Components (wrapped)
 from .canvas import Canvas
 from .configpanel import ConfigPanel
 from .scenetext_manager import SceneTextManager, TextPanel
-from .module_manager import ModuleManager
-from .global_search_widget import GlobalSearchWidget
-from .io_thread import ImgSaveThread, ImportDocThread, ExportDocThread
+
+
+class AnimatedPanel(QWidget):
+    """A wrapper for panels that supports sliding animations"""
+    def __init__(self, content_widget: QWidget, direction="left", parent=None):
+        super().__init__(parent)
+        self.direction = direction
+        self.content = content_widget
+        self.max_width = 300
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.addWidget(self.content)
+
+        self.setFixedWidth(0)
+        self._is_expanded = False
+
+        self.animation = QPropertyAnimation(self, b"minimumWidth")
+        self.animation.setDuration(400)
+        self.animation.setEasingCurve(QEasingCurve.OutExpo)
+
+    def toggle(self):
+        if self._is_expanded: self.collapse()
+        else: self.expand()
+
+    def expand(self):
+        self.animation.setStartValue(self.width())
+        self.animation.setEndValue(self.max_width)
+        self.animation.start()
+        self._is_expanded = True
+
+    def collapse(self):
+        self.animation.setStartValue(self.width())
+        self.animation.setEndValue(0)
+        self.animation.start()
+        self._is_expanded = False
 
 
 class ModernMainWindow(QMainWindow):
     """
-    Modern MainWindow with Improved Architecture
+    Modern MainWindow with Integrated Dashboard and Workspace
     """
     restart_signal = Signal()
     
@@ -45,6 +80,9 @@ class ModernMainWindow(QMainWindow):
         self.config = config
         self.setWindowTitle("Modern Manga Translator")
         
+        # Frameless Window
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Window)
+
         # Initialize theme
         self.theme = ModernTheme()
         self.apply_theme()
@@ -55,217 +93,143 @@ class ModernMainWindow(QMainWindow):
         
         # Setup central widget
         self.central_widget = QWidget()
+        self.central_widget.setObjectName("CentralWidget")
         self.setCentralWidget(self.central_widget)
         
-        # Initialize components
-        self._setup_threads()
-        self._setup_ui()
+        self.main_v_layout = QVBoxLayout(self.central_widget)
+        self.main_v_layout.setContentsMargins(0, 0, 0, 0)
+        self.main_v_layout.setSpacing(0)
+
+        # Title Bar
+        self.title_bar = ModernTitleBar(self)
+        self.main_v_layout.addWidget(self.title_bar)
+
+        # Main Stack (Dashboard vs Workspace)
+        self.main_stack = QStackedWidget()
+        self.main_v_layout.addWidget(self.main_stack)
+
+        # 1. Dashboard Page
+        self.dashboard = ModernDashboard()
+        self.dashboard.action_open.connect(self.on_open_project)
+        self.dashboard.project_selected.connect(self.open_project)
+        self.main_stack.addWidget(self.dashboard)
+
+        # 2. Workspace Page
+        self.workspace_page = QWidget()
+        self.workspace_layout = QHBoxLayout(self.workspace_page)
+        self.workspace_layout.setContentsMargins(0, 0, 0, 0)
+        self.workspace_layout.setSpacing(0)
+        self.main_stack.addWidget(self.workspace_page)
+
+        self._setup_workspace_ui()
         self._setup_shortcuts()
         
+        # Opacity effect for transitions
+        self.opacity_effect = QGraphicsOpacityEffect(self.main_stack)
+        self.main_stack.setGraphicsEffect(self.opacity_effect)
+        self.fade_anim = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.fade_anim.setDuration(500)
+
         # Load project if specified
         if open_dir and osp.exists(open_dir):
             self.open_project(open_dir)
-        elif pcfg.open_recent_on_startup and pcfg.recent_proj_list:
-            recent = pcfg.recent_proj_list[0]
-            if osp.exists(recent):
-                self.open_project(recent)
+        else:
+            self.main_stack.setCurrentWidget(self.dashboard)
         
         self.show()
     
     def apply_theme(self):
-        """Apply modern theme stylesheet"""
         self.setStyleSheet(self.theme.get_stylesheet())
     
-    def _setup_threads(self):
-        """Setup background threads"""
-        self.imsave_thread = ImgSaveThread()
-        self.export_doc_thread = ExportDocThread()
-        self.import_doc_thread = ImportDocThread(self)
-    
-    def _setup_ui(self):
-        """Setup main UI layout"""
-        # Main horizontal layout
-        self.main_layout = QHBoxLayout(self.central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
-        self.main_layout.setSpacing(0)
-        
+    def _setup_workspace_ui(self):
+        """Setup workspace layout inside the stacked widget"""
         # Modern Sidebar
         self.sidebar = ModernSidebarNew(self)
         self.sidebar.action_open.connect(self.on_open_project)
         self.sidebar.action_detect.connect(self.on_detect)
         self.sidebar.action_ocr.connect(self.on_ocr)
         self.sidebar.action_inpaint.connect(self.on_inpaint)
-        self.sidebar.action_batch.connect(self.on_batch)
-        self.sidebar.action_export.connect(self.on_export)
-        self.sidebar.action_settings.connect(self.on_settings)
         self.sidebar.page_list_toggled.connect(self.on_toggle_page_list)
-        self.sidebar.search_toggled.connect(self.on_toggle_search)
         
-        self.main_layout.addWidget(self.sidebar)
+        self.workspace_layout.addWidget(self.sidebar)
         
-        # Content area with splitter
-        self.content_splitter = QSplitter(Qt.Horizontal)
+        # Left Panel (Page List) - Animated
+        self.page_list_card = ModernCard("Pages", self)
+        self.page_list_placeholder = QLabel("Project Page List Here")
+        self.page_list_placeholder.setAlignment(Qt.AlignCenter)
+        self.page_list_card.add_widget(self.page_list_placeholder)
         
-        # Left panel (Page List / Search)
-        self.left_panel = QStackedWidget()
-        self.left_panel.setMinimumWidth(200)
-        self.left_panel.setMaximumWidth(350)
+        self.page_list_animated = AnimatedPanel(self.page_list_card, "left", self)
+        self.workspace_layout.addWidget(self.page_list_animated)
         
-        # Page list placeholder
-        self.page_list_widget = QWidget()
-        self.page_list_layout = QVBoxLayout(self.page_list_widget)
-        self.page_list_layout.addWidget(QLabel("Page List"))
-        self.left_panel.addWidget(self.page_list_widget)
+        # Center Workspace
+        self.workspace_container = QWidget()
+        self.center_layout = QVBoxLayout(self.workspace_container)
+        self.center_layout.setContentsMargins(12, 12, 12, 12)
+        self.center_layout.setSpacing(12)
         
-        # Search placeholder
-        self.search_widget = QWidget()
-        self.search_layout = QVBoxLayout(self.search_widget)
-        self.search_layout.addWidget(QLabel("Global Search"))
-        self.left_panel.addWidget(self.search_widget)
-        
-        self.content_splitter.addWidget(self.left_panel)
-        
-        # Center area (Canvas + Config)
-        self.center_stack = QStackedWidget()
-        
-        # Canvas view
-        self.canvas_container = QWidget()
-        self.canvas_layout = QVBoxLayout(self.canvas_container)
-        self.canvas_layout.setContentsMargins(0, 0, 0, 0)
-        
-        # Initialize canvas
+        self.canvas_card = ModernCard(parent=self)
+        self.canvas_card.main_layout.setContentsMargins(0, 0, 0, 0)
         self.canvas = Canvas()
-        self.canvas_layout.addWidget(self.canvas.gv)
+        self.canvas_card.add_widget(self.canvas.gv)
         
-        self.center_stack.addWidget(self.canvas_container)
+        self.center_layout.addWidget(self.canvas_card)
+        self.workspace_layout.addWidget(self.workspace_container, 1)
         
-        # Config panel
-        self.config_panel = ConfigPanel(self)
-        self.center_stack.addWidget(self.config_panel)
+        # Right Panel (Text Editor) - Animated
+        self.text_panel_card = ModernCard("Editor", self)
+        self.text_panel = TextPanel(self.app)
+        self.text_panel_card.add_widget(self.text_panel)
         
-        self.content_splitter.addWidget(self.center_stack)
-        self.content_splitter.setStretchFactor(1, 1)
+        self.text_panel_animated = AnimatedPanel(self.text_panel_card, "right", self)
+        self.text_panel_animated.max_width = 400
+        self.workspace_layout.addWidget(self.text_panel_animated)
         
-        # Right panel (Text Editor)
-        self.right_panel = TextPanel(self.app)
-        self.right_panel.setMinimumWidth(300)
-        self.right_panel.setMaximumWidth(450)
-        
-        self.content_splitter.addWidget(self.right_panel)
-        self.content_splitter.setStretchFactor(2, 0)
-        
-        self.main_layout.addWidget(self.content_splitter, 1)
-        
-        # Set initial state
-        self.left_panel.hide()
-    
     def _setup_shortcuts(self):
-        """Setup keyboard shortcuts"""
-        # File operations
         QShortcut(QKeySequence.Open, self, self.on_open_project)
-        QShortcut(QKeySequence.Save, self, self.on_save)
-        
-        # View toggles
-        QShortcut(QKeySequence("Ctrl+T"), self, self.on_toggle_text_panel)
         QShortcut(QKeySequence("Ctrl+B"), self, self.on_toggle_sidebar)
-        
-        # Tools
-        QShortcut(QKeySequence("D"), self, self.on_detect)
-        QShortcut(QKeySequence("O"), self, self.on_ocr)
-        QShortcut(QKeySequence("I"), self, self.on_inpaint)
+        QShortcut(QKeySequence("Ctrl+T"), self, self.on_toggle_text_panel)
+        QShortcut(QKeySequence("Home"), self, self.go_home)
     
-    # ===== Action Handlers =====
-    
+    def go_home(self):
+        self._fade_to_widget(self.dashboard)
+
+    def _fade_to_widget(self, widget):
+        self.fade_anim.setStartValue(1.0)
+        self.fade_anim.setEndValue(0.0)
+        self.fade_anim.finished.connect(lambda: self._complete_fade(widget))
+        self.fade_anim.start()
+
+    def _complete_fade(self, widget):
+        self.fade_anim.finished.disconnect()
+        self.main_stack.setCurrentWidget(widget)
+        self.fade_anim.setStartValue(0.0)
+        self.fade_anim.setEndValue(1.0)
+        self.fade_anim.start()
+
     def on_open_project(self):
-        """Open project folder"""
-        folder = QFileDialog.getExistingDirectory(
-            self, 
-            self.tr("Select Project Folder"),
-            ""
-        )
-        if folder:
-            self.open_project(folder)
+        folder = QFileDialog.getExistingDirectory(self, "Select Project Folder")
+        if folder: self.open_project(folder)
     
     def open_project(self, path: str):
-        """Open project at path"""
-        LOGGER.info(f"Opening project: {path}")
-        # TODO: Implement project loading
-        self.setWindowTitle(f"Modern Manga Translator - {osp.basename(path)}")
+        self.title_bar.title_label.setText(f"Modern Manga Translator - {osp.basename(path)}")
+        self._fade_to_widget(self.workspace_page)
+        LOGGER.info(f"Loaded project: {path}")
     
-    def on_save(self):
-        """Save project"""
-        LOGGER.info("Saving project...")
-        save_config()
-    
-    def on_detect(self):
-        """Run text detection"""
-        LOGGER.info("Running text detection...")
-        self.sidebar.set_active_tool('detect')
-        self.show_config_panel()
-        self.config_panel.focusOnDetect()
-    
-    def on_ocr(self):
-        """Run OCR"""
-        LOGGER.info("Running OCR...")
-        self.sidebar.set_active_tool('ocr')
-        self.show_config_panel()
-        self.config_panel.focusOnOCR()
-    
-    def on_inpaint(self):
-        """Run inpainting"""
-        LOGGER.info("Running inpainting...")
-        self.sidebar.set_active_tool('inpaint')
-        self.show_config_panel()
-        self.config_panel.focusOnInpaint()
-    
-    def on_batch(self):
-        """Open batch processing"""
-        LOGGER.info("Opening batch processing...")
-        QMessageBox.information(self, "Batch", "Batch processing dialog here")
-    
-    def on_export(self):
-        """Export project"""
-        LOGGER.info("Exporting project...")
-    
-    def on_settings(self):
-        """Toggle settings panel"""
-        self.show_config_panel()
+    def on_detect(self): LOGGER.info("Detecting...")
+    def on_ocr(self): LOGGER.info("OCR...")
+    def on_inpaint(self): LOGGER.info("Inpainting...")
     
     def on_toggle_page_list(self, show: bool):
-        """Toggle page list visibility"""
-        if show:
-            self.left_panel.show()
-            self.left_panel.setCurrentWidget(self.page_list_widget)
-        else:
-            if self.left_panel.currentWidget() == self.page_list_widget:
-                self.left_panel.hide()
-    
-    def on_toggle_search(self, show: bool):
-        """Toggle search panel visibility"""
-        if show:
-            self.left_panel.show()
-            self.left_panel.setCurrentWidget(self.search_widget)
-        else:
-            if self.left_panel.currentWidget() == self.search_widget:
-                self.left_panel.hide()
-    
+        if show: self.page_list_animated.expand()
+        else: self.page_list_animated.collapse()
+
     def on_toggle_text_panel(self):
-        """Toggle right text panel"""
-        self.right_panel.setVisible(not self.right_panel.isVisible())
+        self.text_panel_animated.toggle()
     
     def on_toggle_sidebar(self):
-        """Toggle left sidebar"""
         self.sidebar.setVisible(not self.sidebar.isVisible())
     
-    def show_config_panel(self):
-        """Show configuration panel"""
-        self.center_stack.setCurrentWidget(self.config_panel)
-    
-    def show_canvas(self):
-        """Show canvas view"""
-        self.center_stack.setCurrentWidget(self.canvas_container)
-    
     def closeEvent(self, event: QCloseEvent):
-        """Handle window close"""
         save_config()
         event.accept()

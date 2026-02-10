@@ -1,5 +1,5 @@
 """
-Modern Theme System with Color Palette and Styles
+Modern Theme System - Ultra Dark & Professional
 """
 from dataclasses import dataclass
 from typing import Dict, Optional
@@ -7,338 +7,202 @@ from typing import Dict, Optional
 
 @dataclass
 class ThemeColors:
-    """Modern Color Palette"""
-    # Primary Colors
+    """Ultra Modern Color Palette - Deep Dark Edition"""
+    # Primary & Accents
     primary: str = "#6366f1"          # Indigo 500
     primary_hover: str = "#4f46e5"    # Indigo 600
-    primary_light: str = "#818cf8"    # Indigo 400
+    primary_glow: str = "rgba(99, 102, 241, 0.4)"
+    primary_soft: str = "rgba(99, 102, 241, 0.1)"
     
-    # Background Colors
-    bg_primary: str = "#0f172a"       # Slate 900
-    bg_secondary: str = "#1e293b"     # Slate 800
-    bg_tertiary: str = "#334155"      # Slate 700
-    bg_card: str = "#1e293b"          # Slate 800
-    bg_hover: str = "#334155"         # Slate 700
+    # Deep Dark Backgrounds
+    bg_base: str = "#020617"          # Slate 950
+    bg_surface: str = "#0f172a"       # Slate 900
+    bg_surface_light: str = "#1e293b" # Slate 800
+    bg_glass: str = "rgba(15, 23, 42, 0.8)"
     
-    # Text Colors
-    text_primary: str = "#f8fafc"     # Slate 50
-    text_secondary: str = "#cbd5e1"   # Slate 300
-    text_muted: str = "#64748b"       # Slate 500
-    text_disabled: str = "#475569"    # Slate 600
+    # Text
+    text_main: str = "#f8fafc"        # Slate 50
+    text_sub: str = "#94a3b8"         # Slate 400
+    text_muted: str = "#475569"       # Slate 600
     
-    # Accent Colors
-    accent_success: str = "#22c55e"   # Green 500
-    accent_warning: str = "#f59e0b"   # Amber 500
-    accent_error: str = "#ef4444"     # Red 500
-    accent_info: str = "#3b82f6"      # Blue 500
+    # Borders & Lines
+    border_subtle: str = "rgba(255, 255, 255, 0.05)"
+    border_active: str = "rgba(99, 102, 241, 0.5)"
     
-    # Border Colors
-    border: str = "#334155"           # Slate 700
-    border_light: str = "#475569"     # Slate 600
-    
-    # Status Colors
-    status_active: str = "#22c55e"    # Green 500
-    status_processing: str = "#3b82f6" # Blue 500
-    status_warning: str = "#f59e0b"   # Amber 500
-    status_error: str = "#ef4444"     # Red 500
+    # Functional
+    success: str = "#10b981"
+    error: str = "#ef4444"
 
 
 class ModernTheme:
-    """Modern Theme Generator with CSS-like Styles"""
+    """Ultra Modern Theme with refined CSS"""
     
     def __init__(self, colors: Optional[ThemeColors] = None):
         self.colors = colors or ThemeColors()
-        self._cache: Dict[str, str] = {}
     
     def get_stylesheet(self) -> str:
-        """Generate complete application stylesheet"""
-        if 'full' in self._cache:
-            return self._cache['full']
-        
-        styles = []
-        styles.extend([
-            self._main_window_style(),
-            self._sidebar_style(),
-            self._toolbar_style(),
+        return "\n".join([
+            self._base_style(),
+            self._scroll_style(),
             self._button_style(),
+            self._card_style(),
             self._input_style(),
-            self._panel_style(),
-            self._menu_style(),
-            self._scrollbar_style(),
-            self._tooltip_style(),
-            self._progress_style(),
+            self._sidebar_style(),
+            self._splitter_style(),
+            self._tab_style(),
+            self._menu_style()
         ])
-        
-        self._cache['full'] = '\n'.join(styles)
-        return self._cache['full']
     
-    def _main_window_style(self) -> str:
+    def _base_style(self) -> str:
         return f"""
-        QMainWindow {{
-            background-color: {self.colors.bg_primary};
-            color: {self.colors.text_primary};
-            border: none;
+        QMainWindow, QDialog, QWidget {{
+            background-color: {self.colors.bg_base};
+            color: {self.colors.text_main};
+            font-family: 'Inter', 'Segoe UI', sans-serif;
         }}
         
-        QWidget {{
-            background-color: {self.colors.bg_primary};
-            color: {self.colors.text_primary};
-            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-            font-size: 13px;
+        #CentralWidget {{
+            background-color: {self.colors.bg_base};
+        }}
+        
+        QLabel {{
+            background-color: transparent;
+            color: {self.colors.text_main};
+        }}
+        
+        QLabel#SubText {{
+            color: {self.colors.text_sub};
+            font-size: 12px;
+        }}
+        """
+    
+    def _scroll_style(self) -> str:
+        return f"""
+        QScrollBar:vertical {{
+            background: transparent;
+            width: 6px;
+            margin: 0px;
+        }}
+        QScrollBar::handle:vertical {{
+            background: {self.colors.text_muted};
+            border-radius: 3px;
+            min-height: 40px;
+        }}
+        QScrollBar::handle:vertical:hover {{
+            background: {self.colors.text_sub};
+        }}
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0px; }}
+        """
+    
+    def _button_style(self) -> str:
+        return f"""
+        QPushButton {{
+            background-color: {self.colors.bg_surface_light};
+            border: 1px solid {self.colors.border_subtle};
+            border-radius: 10px;
+            padding: 10px 20px;
+            color: {self.colors.text_main};
+            font-weight: 600;
+        }}
+        QPushButton:hover {{
+            background-color: rgba(255, 255, 255, 0.05);
+            border-color: {self.colors.text_muted};
+        }}
+        QPushButton#PrimaryButton {{
+            background-color: {self.colors.primary};
+            border: none;
+            color: white;
+        }}
+        QPushButton#PrimaryButton:hover {{
+            background-color: {self.colors.primary_hover};
+        }}
+        """
+    
+    def _card_style(self) -> str:
+        return f"""
+        #ModernCard {{
+            background-color: {self.colors.bg_surface};
+            border: 1px solid {self.colors.border_subtle};
+            border-radius: 16px;
+        }}
+        #CardTitle {{
+            font-weight: 700;
+            font-size: 14px;
+            color: {self.colors.text_main};
+            padding-bottom: 4px;
+        }}
+        """
+
+    def _input_style(self) -> str:
+        return f"""
+        QLineEdit, QTextEdit {{
+            background-color: {self.colors.bg_base};
+            border: 1px solid {self.colors.border_subtle};
+            border-radius: 8px;
+            padding: 12px;
+            color: {self.colors.text_main};
+        }}
+        QLineEdit:focus {{
+            border-color: {self.colors.primary};
+            background-color: {self.colors.bg_surface};
         }}
         """
     
     def _sidebar_style(self) -> str:
         return f"""
         #ModernSidebar {{
-            background-color: {self.colors.bg_secondary};
-            border-right: 1px solid {self.colors.border};
+            background-color: {self.colors.bg_base};
+            border-right: 1px solid {self.colors.border_subtle};
         }}
-        
         #SidebarBtn {{
-            background-color: transparent;
-            color: {self.colors.text_secondary};
-            border: none;
-            border-radius: 8px;
-            padding: 8px;
+            border-radius: 12px;
+            margin: 4px;
         }}
-        
         #SidebarBtn:hover {{
-            background-color: {self.colors.bg_hover};
-            color: {self.colors.text_primary};
+            background-color: rgba(255, 255, 255, 0.05);
         }}
-        
         #SidebarBtn:checked {{
-            background-color: {self.colors.primary};
-            color: white;
+            background-color: {self.colors.primary_soft};
+            border: 1px solid {self.colors.primary};
+        }}
+        """
+
+    def _splitter_style(self) -> str:
+        return f"""
+        QSplitter::handle {{
+            background-color: {self.colors.border_subtle};
         }}
         """
     
-    def _toolbar_style(self) -> str:
+    def _tab_style(self) -> str:
         return f"""
-        QToolBar {{
-            background-color: {self.colors.bg_secondary};
-            border: none;
-            spacing: 4px;
-            padding: 4px;
+        QTabWidget::pane {{ border: none; }}
+        QTabBar::tab {{
+            background: transparent;
+            color: {self.colors.text_sub};
+            padding: 12px 24px;
+            border-bottom: 2px solid transparent;
         }}
-        
-        QToolButton {{
-            background-color: transparent;
-            color: {self.colors.text_secondary};
-            border: none;
-            border-radius: 6px;
-            padding: 6px;
-        }}
-        
-        QToolButton:hover {{
-            background-color: {self.colors.bg_hover};
-            color: {self.colors.text_primary};
-        }}
-        
-        QToolButton:checked {{
-            background-color: {self.colors.primary};
-            color: white;
-        }}
-        """
-    
-    def _button_style(self) -> str:
-        return f"""
-        QPushButton {{
-            background-color: {self.colors.bg_tertiary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 6px;
-            padding: 8px 16px;
-            font-weight: 500;
-        }}
-        
-        QPushButton:hover {{
-            background-color: {self.colors.bg_hover};
-            border-color: {self.colors.border_light};
-        }}
-        
-        QPushButton:pressed {{
-            background-color: {self.colors.primary};
-        }}
-        
-        QPushButton:disabled {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_disabled};
-            border-color: {self.colors.border};
-        }}
-        
-        QPushButton#PrimaryButton {{
-            background-color: {self.colors.primary};
-            color: white;
-            border: none;
-        }}
-        
-        QPushButton#PrimaryButton:hover {{
-            background-color: {self.colors.primary_hover};
-        }}
-        """
-    
-    def _input_style(self) -> str:
-        return f"""
-        QLineEdit, QTextEdit, QPlainTextEdit {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 6px;
-            padding: 8px;
-            selection-background-color: {self.colors.primary};
-        }}
-        
-        QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
-            border-color: {self.colors.primary};
-        }}
-        
-        QComboBox {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 6px;
-            padding: 6px 12px;
-        }}
-        
-        QComboBox:hover {{
-            border-color: {self.colors.border_light};
-        }}
-        
-        QComboBox::drop-down {{
-            border: none;
-            width: 20px;
-        }}
-        
-        QComboBox QAbstractItemView {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            selection-background-color: {self.colors.primary};
-        }}
-        """
-    
-    def _panel_style(self) -> str:
-        return f"""
-        #ConfigPanel, #TextPanel {{
-            background-color: {self.colors.bg_secondary};
-            border: 1px solid {self.colors.border};
-            border-radius: 8px;
-        }}
-        
-        QGroupBox {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 8px;
-            margin-top: 12px;
-            padding-top: 12px;
-            font-weight: 600;
-        }}
-        
-        QGroupBox::title {{
-            subcontrol-origin: margin;
-            left: 12px;
-            padding: 0 8px;
-            color: {self.colors.text_secondary};
+        QTabBar::tab:selected {{
+            color: {self.colors.primary};
+            border-bottom: 2px solid {self.colors.primary};
+            font-weight: 700;
         }}
         """
     
     def _menu_style(self) -> str:
         return f"""
-        QMenuBar {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border-bottom: 1px solid {self.colors.border};
-        }}
-        
-        QMenuBar::item:selected {{
-            background-color: {self.colors.bg_hover};
-        }}
-        
         QMenu {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 6px;
-            padding: 6px;
+            background-color: {self.colors.bg_surface};
+            border: 1px solid {self.colors.border_subtle};
+            border-radius: 8px;
+            padding: 4px;
         }}
-        
         QMenu::item {{
-            padding: 6px 24px;
+            padding: 8px 32px;
             border-radius: 4px;
         }}
-        
         QMenu::item:selected {{
             background-color: {self.colors.primary};
-        }}
-        
-        QMenu::separator {{
-            height: 1px;
-            background-color: {self.colors.border};
-            margin: 6px 0;
-        }}
-        """
-    
-    def _scrollbar_style(self) -> str:
-        return f"""
-        QScrollBar:vertical {{
-            background-color: {self.colors.bg_secondary};
-            width: 10px;
-            border-radius: 5px;
-        }}
-        
-        QScrollBar::handle:vertical {{
-            background-color: {self.colors.bg_tertiary};
-            border-radius: 5px;
-            min-height: 20px;
-        }}
-        
-        QScrollBar::handle:vertical:hover {{
-            background-color: {self.colors.border_light};
-        }}
-        
-        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-            height: 0px;
-        }}
-        
-        QScrollBar:horizontal {{
-            background-color: {self.colors.bg_secondary};
-            height: 10px;
-            border-radius: 5px;
-        }}
-        
-        QScrollBar::handle:horizontal {{
-            background-color: {self.colors.bg_tertiary};
-            border-radius: 5px;
-            min-width: 20px;
-        }}
-        """
-    
-    def _tooltip_style(self) -> str:
-        return f"""
-        QToolTip {{
-            background-color: {self.colors.bg_tertiary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 4px;
-            padding: 4px 8px;
-        }}
-        """
-    
-    def _progress_style(self) -> str:
-        return f"""
-        QProgressBar {{
-            background-color: {self.colors.bg_secondary};
-            color: {self.colors.text_primary};
-            border: 1px solid {self.colors.border};
-            border-radius: 4px;
-            text-align: center;
-        }}
-        
-        QProgressBar::chunk {{
-            background-color: {self.colors.primary};
-            border-radius: 3px;
         }}
         """

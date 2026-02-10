@@ -7,7 +7,7 @@ from qtpy.QtGui import QColor, QIcon, QPainter, QPaintEvent
 
 
 class ModernButton(QPushButton):
-    """Modern Styled Button with Hover Animation"""
+    """Modern Styled Button with Hover Animation and Refined Style"""
     
     def __init__(self, text: str = "", parent=None, primary: bool = False):
         super().__init__(text, parent)
@@ -18,18 +18,25 @@ class ModernButton(QPushButton):
     
     def _setup_style(self):
         self.setCursor(Qt.PointingHandCursor)
-        self.setMinimumHeight(36)
+        self.setMinimumHeight(40)
+        self.setStyleSheet("""
+            QPushButton {
+                border-radius: 12px;
+                font-weight: 600;
+                letter-spacing: 0.5px;
+            }
+        """)
         if self._primary:
             self.setObjectName("PrimaryButton")
     
     def _setup_animation(self):
         self._anim = QPropertyAnimation(self, b"scale")
-        self._anim.setDuration(150)
-        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anim.setDuration(100)
+        self._anim.setEasingCurve(QEasingCurve.OutQuad)
     
     def enterEvent(self, event):
-        self._anim.setStartValue(1.0)
-        self._anim.setEndValue(1.02)
+        self._anim.setStartValue(self._scale)
+        self._anim.setEndValue(1.05)
         self._anim.start()
         super().enterEvent(event)
     
@@ -50,22 +57,33 @@ class ModernButton(QPushButton):
 
 
 class ModernIconButton(QToolButton):
-    """Modern Icon Button for Toolbars"""
+    """Modern Icon Button with Circle Background on Hover"""
     
     def __init__(self, icon_path: str = "", tooltip: str = "", parent=None, checkable: bool = False):
         super().__init__(parent)
         self.setToolTip(tooltip)
         self.setCheckable(checkable)
-        self._setup_style()
-        
-        if icon_path:
-            self.setIcon(QIcon(icon_path))
-    
-    def _setup_style(self):
         self.setCursor(Qt.PointingHandCursor)
         self.setFixedSize(40, 40)
-        self.setIconSize(QSize(24, 24))
+        self.setIconSize(QSize(22, 22))
         self.setAutoRaise(True)
+        self.setStyleSheet("""
+            QToolButton {
+                border-radius: 20px;
+                background-color: transparent;
+                border: none;
+            }
+            QToolButton:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+            QToolButton:checked {
+                background-color: #6366f1;
+                color: white;
+            }
+        """)
+
+        if icon_path:
+            self.setIcon(QIcon(icon_path))
 
 
 class ModernToggleButton(ModernIconButton):
@@ -73,18 +91,3 @@ class ModernToggleButton(ModernIconButton):
     
     def __init__(self, icon_path: str = "", tooltip: str = "", parent=None):
         super().__init__(icon_path, tooltip, parent, checkable=True)
-        self._active_color = QColor("#6366f1")
-        self._inactive_color = QColor("transparent")
-    
-    def paintEvent(self, event: QPaintEvent):
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-        
-        # Draw background
-        if self.isChecked():
-            painter.setBrush(self._active_color)
-            painter.setPen(Qt.NoPen)
-            painter.drawRoundedRect(self.rect().adjusted(4, 4, -4, -4), 8, 8)
-        
-        painter.end()
-        super().paintEvent(event)

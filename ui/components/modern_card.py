@@ -1,19 +1,20 @@
 """
-Modern Card Component
+Modern Card Component with Animations
 """
 from qtpy.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QGraphicsDropShadowEffect
-from qtpy.QtCore import Qt
+from qtpy.QtCore import Qt, QPropertyAnimation, QEasingCurve, Property
 from qtpy.QtGui import QColor
 
 
 class ModernCard(QWidget):
-    """Modern Card with Shadow Effect"""
+    """Modern Card with Shadow and Hover Lift Effect"""
     
     def __init__(self, title: str = "", parent=None):
         super().__init__(parent)
         self._title = title
         self._setup_ui()
         self._setup_shadow()
+        self._setup_animation()
     
     def _setup_ui(self):
         self.setObjectName("ModernCard")
@@ -26,28 +27,31 @@ class ModernCard(QWidget):
         if self._title:
             self.title_label = QLabel(self._title)
             self.title_label.setObjectName("CardTitle")
-            self.title_label.setStyleSheet("""
-                font-size: 14px;
-                font-weight: 600;
-                color: #f8fafc;
-            """)
             self.main_layout.addWidget(self.title_label)
     
     def _setup_shadow(self):
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(20)
-        shadow.setColor(QColor(0, 0, 0, 60))
-        shadow.setOffset(0, 4)
-        self.setGraphicsEffect(shadow)
+        self.shadow = QGraphicsDropShadowEffect(self)
+        self.shadow.setBlurRadius(20)
+        self.shadow.setColor(QColor(0, 0, 0, 80))
+        self.shadow.setOffset(0, 4)
+        self.setGraphicsEffect(self.shadow)
+
+    def _setup_animation(self):
+        self._anim = QPropertyAnimation(self.shadow, b"blurRadius")
+        self._anim.setDuration(200)
+
+    def enterEvent(self, event):
+        self._anim.setEndValue(30)
+        self._anim.start()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._anim.setEndValue(20)
+        self._anim.start()
+        super().leaveEvent(event)
     
     def set_content(self, widget: QWidget):
-        """Set main content widget"""
         self.main_layout.addWidget(widget)
     
     def add_widget(self, widget: QWidget):
-        """Add widget to card"""
         self.main_layout.addWidget(widget)
-    
-    def add_layout(self, layout):
-        """Add layout to card"""
-        self.main_layout.addLayout(layout)
